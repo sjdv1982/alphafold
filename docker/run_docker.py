@@ -182,7 +182,8 @@ def main(argv):
       command_args.append(f'--{name}={target_path}')
 
   output_target_path = os.path.join(_ROOT_MOUNT_DIRECTORY, 'output')
-  mounts.append(types.Mount(output_target_path, FLAGS.output_dir, type='bind'))
+  output_dir = os.path.abspath(FLAGS.output_dir)
+  mounts.append(types.Mount(output_target_path, output_dir, type='bind'))
 
   command_args.extend([
       f'--output_dir={output_target_path}',
