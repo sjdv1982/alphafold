@@ -70,6 +70,12 @@ flags.DEFINE_boolean(
     'Run multiple JAX model evaluations to obtain a timing that excludes the '
     'compilation time, which should be more indicative of the time required '
     'for inferencing many proteins.')
+flags.DEFINE_integer(
+    'random_seed', None, 'The random seed for the data '
+    'pipeline. By default, this is randomly generated. Note '
+    'that even if this is set, Alphafold may still not be '
+    'deterministic, because processes like GPU inference are '
+    'nondeterministic.')
 flags.DEFINE_boolean(
     'use_precomputed_msas', False,
     'Whether to read MSAs that have been written to disk. WARNING: This will '
@@ -194,6 +200,9 @@ def main(argv):
       f'--use_precomputed_msas={FLAGS.use_precomputed_msas}',
       '--logtostderr',
   ])
+  if FLAGS.random_seed is not None:
+      command_args.append(
+        f'--random_seed={FLAGS.random_seed}')
 
   if FLAGS.is_prokaryote_list:
     command_args.append(
