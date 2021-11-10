@@ -80,6 +80,13 @@ flags.DEFINE_boolean(
     'use_precomputed_msas', False,
     'Whether to read MSAs that have been written to disk. WARNING: This will '
     'not check if the sequence, database or configuration have changed.')
+flags.DEFINE_boolean(
+    'dev', False, 'Run inside alphafold-dev Docker container. '
+    'This is meant for modifying AlphaFold without re-building the Docker image '
+    'The AlphaFold source code is bound to the container '
+    'from an external location, defined as environment variable ALPHAFOLD_DIR.'
+    'ALPHAFOLD_DIR should be set to <AlphaFold git repo dir>/alphafold.'
+)
 
 FLAGS = flags.FLAGS
 
@@ -140,13 +147,14 @@ def main(argv):
   # Path to a file mapping obsolete PDB IDs to their replacements.
   obsolete_pdbs_path = os.path.join(FLAGS.data_dir, 'pdb_mmcif', 'obsolete.dat')
 
-  alphafold_path = pathlib.Path(__file__).parent.parent
-  data_dir_path = pathlib.Path(FLAGS.data_dir)
-  if alphafold_path == data_dir_path or alphafold_path in data_dir_path.parents:
-    raise app.UsageError(
-        f'The download directory {FLAGS.data_dir} should not be a subdirectory '
-        f'in the AlphaFold repository directory. If it is, the Docker build is '
-        f'slow since the large databases are copied during the image creation.')
+  if not FLAGS.dev:
+    alphafold_path = pathlib.Path(__file__).parent.parent
+    data_dir_path = pathlib.Path(FLAGS.data_dir)
+    if alphafold_path == data_dir_path or alphafold_path in data_dir_path.parents:
+        raise app.UsageError(
+            f'The download directory {FLAGS.data_dir} should not be a subdirectory '
+            f'in the AlphaFold repository directory. If it is, the Docker build is '
+            f'slow since the large databases are copied during the image creation.')
 
   mounts = []
   command_args = []
@@ -208,9 +216,23 @@ def main(argv):
     command_args.append(
         f'--is_prokaryote_list={",".join(FLAGS.is_prokaryote_list)}')
 
+  docker_image_name = FLAGS.docker_image_name
+  if FLAGS.dev: 
+    alphafold_dir = os.environ.get("ALPHAFOLD_DIR")
+    if alphafold_dir is None:
+      raise app.UsageError('ALPHAFOLD_DIR is undefined')
+    run_alphafold_py = os.path.join(alphafold_dir, "run_alphafold.py")
+    if not os.path.exists(run_alphafold_py):
+      raise app.UsageError('ALPHAFOLD_DIR must contain "run_alphafold.py"')
+    mounts.append(types.Mount(
+      "/app/alphafold", alphafold_dir, 
+      type='bind', read_only=True)
+    )
+    if docker_image_name == "alphafold":
+      docker_image_name = "alphafold-dev"
   client = docker.from_env()
   container = client.containers.run(
-      image=FLAGS.docker_image_name,
+      image=docker_image_name,
       command=command_args,
       runtime='nvidia' if FLAGS.use_gpu else None,
       remove=True,
