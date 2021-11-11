@@ -81,6 +81,9 @@ flags.DEFINE_boolean(
     'Whether to read MSAs that have been written to disk. WARNING: This will '
     'not check if the sequence, database or configuration have changed.')
 flags.DEFINE_boolean(
+    'only_msas', False, 
+    'Whether to only build MSAs, and not do any prediction.')
+flags.DEFINE_boolean(
     'use_templates', True,
     'Whether to search for template structures.')
 flags.DEFINE_boolean(
@@ -214,6 +217,7 @@ def main(argv):
       f'--model_preset={FLAGS.model_preset}',
       f'--benchmark={FLAGS.benchmark}',
       f'--use_precomputed_msas={FLAGS.use_precomputed_msas}',
+      f'--only_msas={FLAGS.only_msas}',
       f'--use_templates={FLAGS.use_templates}',
       '--logtostderr',
   ])
