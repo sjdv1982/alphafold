@@ -113,6 +113,9 @@ flags.DEFINE_integer('random_seed', None, 'The random seed for the data '
                      'that even if this is set, Alphafold may still not be '
                      'deterministic, because processes like GPU inference are '
                      'nondeterministic.')
+flags.DEFINE_boolean(
+                     'use_templates', True,
+                     'Whether to search for template structures.')
 flags.DEFINE_boolean('use_precomputed_msas', False, 'Whether to read MSAs that '
                      'have been written to disk. WARNING: This will not check '
                      'if the sequence, database or configuration have changed.')
@@ -322,29 +325,32 @@ def main(argv):
   else:  # Default is_prokaryote to False.
     is_prokaryote_list = [False] * len(fasta_names)
 
-  if run_multimer_system:
-    template_searcher = hmmsearch.Hmmsearch(
-        binary_path=FLAGS.hmmsearch_binary_path,
-        hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
-        database_path=FLAGS.pdb_seqres_database_path)
-    template_featurizer = templates.HmmsearchHitFeaturizer(
-        mmcif_dir=FLAGS.template_mmcif_dir,
-        max_template_date=FLAGS.max_template_date,
-        max_hits=MAX_TEMPLATE_HITS,
-        kalign_binary_path=FLAGS.kalign_binary_path,
-        release_dates_path=None,
-        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
-  else:
-    template_searcher = hhsearch.HHSearch(
-        binary_path=FLAGS.hhsearch_binary_path,
-        databases=[FLAGS.pdb70_database_path])
-    template_featurizer = templates.HhsearchHitFeaturizer(
-        mmcif_dir=FLAGS.template_mmcif_dir,
-        max_template_date=FLAGS.max_template_date,
-        max_hits=MAX_TEMPLATE_HITS,
-        kalign_binary_path=FLAGS.kalign_binary_path,
-        release_dates_path=None,
-        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
+  template_searcher = None
+  template_featurizer = None
+  if FLAGS.use_templates:
+    if run_multimer_system:
+      template_searcher = hmmsearch.Hmmsearch(
+          binary_path=FLAGS.hmmsearch_binary_path,
+          hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
+          database_path=FLAGS.pdb_seqres_database_path)
+      template_featurizer = templates.HmmsearchHitFeaturizer(
+          mmcif_dir=FLAGS.template_mmcif_dir,
+          max_template_date=FLAGS.max_template_date,
+          max_hits=MAX_TEMPLATE_HITS,
+          kalign_binary_path=FLAGS.kalign_binary_path,
+          release_dates_path=None,
+          obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
+    else:
+      template_searcher = hhsearch.HHSearch(
+          binary_path=FLAGS.hhsearch_binary_path,
+          databases=[FLAGS.pdb70_database_path])
+      template_featurizer = templates.HhsearchHitFeaturizer(
+          mmcif_dir=FLAGS.template_mmcif_dir,
+          max_template_date=FLAGS.max_template_date,
+          max_hits=MAX_TEMPLATE_HITS,
+          kalign_binary_path=FLAGS.kalign_binary_path,
+          release_dates_path=None,
+          obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
 
   monomer_data_pipeline = pipeline.DataPipeline(
       jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
@@ -357,7 +363,8 @@ def main(argv):
       template_searcher=template_searcher,
       template_featurizer=template_featurizer,
       use_small_bfd=use_small_bfd,
-      use_precomputed_msas=FLAGS.use_precomputed_msas)
+      use_precomputed_msas=FLAGS.use_precomputed_msas,
+      use_templates=FLAGS.use_templates)
 
   if run_multimer_system:
     data_pipeline = pipeline_multimer.DataPipeline(

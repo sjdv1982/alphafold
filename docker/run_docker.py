@@ -81,6 +81,9 @@ flags.DEFINE_boolean(
     'Whether to read MSAs that have been written to disk. WARNING: This will '
     'not check if the sequence, database or configuration have changed.')
 flags.DEFINE_boolean(
+    'use_templates', True,
+    'Whether to search for template structures.')
+flags.DEFINE_boolean(
     'dev', False, 'Run inside alphafold-dev Docker container. '
     'This is meant for modifying AlphaFold without re-building the Docker image '
     'The AlphaFold source code is bound to the container '
@@ -105,6 +108,11 @@ def _create_mount(mount_name: str, path: str) -> Tuple[types.Mount, str]:
 def main(argv):
   if len(argv) > 1:
     raise app.UsageError('Too many command-line arguments.')
+
+  if FLAGS.use_templates:
+    if FLAGS.max_template_date is None:
+      raise app.UsageError(
+        'If templates are used, max_template_date must be defined')
 
   # You can individually override the following paths if you have placed the
   # data in locations other than the FLAGS.data_dir.
@@ -206,6 +214,7 @@ def main(argv):
       f'--model_preset={FLAGS.model_preset}',
       f'--benchmark={FLAGS.benchmark}',
       f'--use_precomputed_msas={FLAGS.use_precomputed_msas}',
+      f'--use_templates={FLAGS.use_templates}',
       '--logtostderr',
   ])
   if FLAGS.random_seed is not None:
@@ -257,7 +266,6 @@ def main(argv):
 if __name__ == '__main__':
   flags.mark_flags_as_required([
       'data_dir',
-      'fasta_paths',
-      'max_template_date',
+      'fasta_paths'
   ])
   app.run(main)
