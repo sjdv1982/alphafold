@@ -89,11 +89,15 @@ def make_msa_features(msas: Sequence[parsers.Msa]) -> FeatureDict:
   return features
 
 
-def run_msa_tool(msa_runner, input_fasta_path: str, msa_out_path: str,
+def run_msa_tool(db_name:str, 
+                 msa_runner, input_fasta_path: str, msa_out_path: str,
                  msa_format: str, use_precomputed_msas: bool,
                  ) -> Mapping[str, Any]:
   """Runs an MSA tool, checking if output already exists first."""
   if not use_precomputed_msas or not os.path.exists(msa_out_path):
+    if msa_runner is None:
+      raise ValueError(f'Cannot run msa tool for database "{db_name}": ' 
+        'database path undefined')
     result = msa_runner.query(input_fasta_path)[0]
     with open(msa_out_path, 'w') as f:
       f.write(result[msa_format])
@@ -135,20 +139,28 @@ class DataPipeline:
                ):
     """Initializes the data pipeline."""
     self._use_small_bfd = use_small_bfd
-    self.jackhmmer_uniref90_runner = jackhmmer.Jackhmmer(
-        binary_path=jackhmmer_binary_path,
-        database_path=uniref90_database_path)
-    if use_small_bfd:
-      self.jackhmmer_small_bfd_runner = jackhmmer.Jackhmmer(
+    self.jackhmmer_uniref90_runner = None
+    if uniref90_database_path is not None:
+      self.jackhmmer_uniref90_runner = jackhmmer.Jackhmmer(
           binary_path=jackhmmer_binary_path,
-          database_path=small_bfd_database_path)
+          database_path=uniref90_database_path)
+    if use_small_bfd:
+      self.jackhmmer_small_bfd_runner = None
+      if small_bfd_database_path is not None:
+        self.jackhmmer_small_bfd_runner = jackhmmer.Jackhmmer(
+            binary_path=jackhmmer_binary_path,
+            database_path=small_bfd_database_path)
     else:
-      self.hhblits_bfd_uniclust_runner = hhblits.HHBlits(
-          binary_path=hhblits_binary_path,
-          databases=[bfd_database_path, uniclust30_database_path])
-    self.jackhmmer_mgnify_runner = jackhmmer.Jackhmmer(
-        binary_path=jackhmmer_binary_path,
-        database_path=mgnify_database_path)
+      self.hhblits_bfd_uniclust_runner = None
+      if bfd_database_path is not None and uniref90_database_path is not None:
+        self.hhblits_bfd_uniclust_runner = hhblits.HHBlits(
+            binary_path=hhblits_binary_path,
+            databases=[bfd_database_path, uniclust30_database_path])
+    self.jackhmmer_mgnify_runner = None
+    if mgnify_database_path is not None:
+      self.jackhmmer_mgnify_runner = jackhmmer.Jackhmmer(
+          binary_path=jackhmmer_binary_path,
+          database_path=mgnify_database_path)
     self.template_searcher = template_searcher
     self.template_featurizer = template_featurizer
     self.mgnify_max_hits = mgnify_max_hits
@@ -170,10 +182,12 @@ class DataPipeline:
 
     uniref90_out_path = os.path.join(msa_output_dir, 'uniref90_hits.sto')
     jackhmmer_uniref90_result = run_msa_tool(
+        'uniref90',
         self.jackhmmer_uniref90_runner, input_fasta_path, uniref90_out_path,
         'sto', self.use_precomputed_msas)
     mgnify_out_path = os.path.join(msa_output_dir, 'mgnify_hits.sto')
     jackhmmer_mgnify_result = run_msa_tool(
+        'mgnify',
         self.jackhmmer_mgnify_runner, input_fasta_path, mgnify_out_path, 'sto',
         self.use_precomputed_msas)
 
@@ -219,12 +233,14 @@ class DataPipeline:
     if self._use_small_bfd:
       bfd_out_path = os.path.join(msa_output_dir, 'small_bfd_hits.sto')
       jackhmmer_small_bfd_result = run_msa_tool(
+          'small_bfd',
           self.jackhmmer_small_bfd_runner, input_fasta_path, bfd_out_path,
           'sto', self.use_precomputed_msas)
       bfd_msa = parsers.parse_stockholm(jackhmmer_small_bfd_result['sto'])
     else:
       bfd_out_path = os.path.join(msa_output_dir, 'bfd_uniclust_hits.a3m')
       hhblits_bfd_uniclust_result = run_msa_tool(
+          'bfd_uniclust',
           self.hhblits_bfd_uniclust_runner, input_fasta_path, bfd_out_path,
           'a3m', self.use_precomputed_msas)
       bfd_msa = parsers.parse_a3m(hhblits_bfd_uniclust_result['a3m'])

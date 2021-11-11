@@ -49,7 +49,10 @@ flags.DEFINE_string(
 flags.DEFINE_string(
     'data_dir', None,
     'Path to directory with supporting data: AlphaFold parameters and genetic '
-    'and template databases. Set to the target of download_all_databases.sh.')
+    'and template databases. Set to the target of download_all_databases.sh.'
+    'If use_templates is False and use_precomputed_msas is True, and all MSAs '
+    'have indeed been precomputed, only the AlphaFold parameters'
+    '(not the databases) are required.')
 flags.DEFINE_string(
     'docker_image_name', 'alphafold', 'Name of the AlphaFold Docker image.')
 flags.DEFINE_string(
@@ -116,6 +119,13 @@ def main(argv):
     if FLAGS.max_template_date is None:
       raise app.UsageError(
         'If templates are used, max_template_date must be defined')
+
+  if FLAGS.only_msas and FLAGS.use_precomputed_msas:
+    raise app.UsageError('only_msas and use_precomputed_msas are incompatible')
+
+  require_all_databases = True
+  if FLAGS.use_precomputed_msas and not FLAGS.use_templates:
+    require_all_databases = False
 
   # You can individually override the following paths if you have placed the
   # data in locations other than the FLAGS.data_dir.
@@ -200,6 +210,12 @@ def main(argv):
         ('uniclust30_database_path', uniclust30_database_path),
         ('bfd_database_path', bfd_database_path),
     ])
+  if not require_all_databases:
+    database_paths2 = []
+    for db_name, db_path in database_paths:
+      if db_name == "data_dir" or os.path.exists(db_path):
+        database_paths2.append((db_name, db_path))
+    database_paths = database_paths2
   for name, path in database_paths:
     if path:
       mount, target_path = _create_mount(name, path)
