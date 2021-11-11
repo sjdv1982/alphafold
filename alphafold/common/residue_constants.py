@@ -406,6 +406,10 @@ def load_stereo_chemical_props() -> Tuple[Mapping[str, List[Bond]],
   stereo_chemical_props_path = os.path.join(
       os.path.dirname(os.path.abspath(__file__)), 'stereo_chemical_props.txt'
   )
+  # kludge for if AlphaFold is mounted externally into the Docker container
+  if not os.path.exists(stereo_chemical_props_path) \
+    and stereo_chemical_props_path.startswith("/app/"):
+      stereo_chemical_props_path = "/app0/" + stereo_chemical_props_path[5:]
   with open(stereo_chemical_props_path, 'rt') as f:
     stereo_chemical_props = f.read()
   lines_iter = iter(stereo_chemical_props.splitlines())
