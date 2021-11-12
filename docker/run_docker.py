@@ -220,7 +220,8 @@ def main(argv):
   if not require_all_databases:
     database_paths2 = []
     for db_name, db_path in database_paths:
-      if db_name == "data_dir" or os.path.exists(db_path):
+      if db_name == "data_dir" or os.path.exists(db_path) \
+          or os.path.exists(db_path + "_hhm.ffindex"):
         database_paths2.append((db_name, db_path))
     database_paths = database_paths2
   for name, path in database_paths:
