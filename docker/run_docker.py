@@ -18,6 +18,8 @@ import os
 import pathlib
 import signal
 from typing import Tuple
+import shutil
+import subprocess
 
 from absl import app
 from absl import flags
@@ -89,6 +91,11 @@ flags.DEFINE_boolean(
 flags.DEFINE_boolean(
     'use_templates', True,
     'Whether to search for template structures.')
+flags.DEFINE_boolean(
+    'singularity', False,
+    'Whether to use Singularity instead of Docker to execute AlphaFold. '
+    'In that case, $SINGULARITY_IMAGE_DIR must be defined and '
+    'must contain alphafold.simg or alphafold.sif')
 flags.DEFINE_boolean(
     'dev', False, 'Run inside alphafold-dev Docker container. '
     'This is meant for modifying AlphaFold without re-building the Docker image '
@@ -259,28 +266,62 @@ def main(argv):
     )
     if docker_image_name == "alphafold":
       docker_image_name = "alphafold-dev"
-  client = docker.from_env()
-  container = client.containers.run(
-      image=docker_image_name,
-      command=command_args,
-      runtime='nvidia' if FLAGS.use_gpu else None,
-      remove=True,
-      detach=True,
-      mounts=mounts,
-      environment={
-          'NVIDIA_VISIBLE_DEVICES': FLAGS.gpu_devices,
-          # The following flags allow us to make predictions on proteins that
-          # would typically be too long to fit into GPU memory.
-          'TF_FORCE_UNIFIED_MEMORY': '1',
-          'XLA_PYTHON_CLIENT_MEM_FRACTION': '4.0',
-      })
 
-  # Add signal handler to ensure CTRL+C also stops the running container.
-  signal.signal(signal.SIGINT,
-                lambda unused_sig, unused_frame: container.kill())
+  if FLAGS.singularity:
+    if shutil.which("singularity") is None:
+      raise app.UsageError('Could not find path to the "singularity" binary. '
+                           'Make sure it is installed on your system.')
+    singularity_image_dir = os.environ.get("SINGULARITY_IMAGE_DIR")
+    if singularity_image_dir is None:
+      raise app.UsageError('SINGULARITY_IMAGE_DIR must be defined')
+    if not os.path.exists(singularity_image_dir):
+      raise app.UsageError(f'SINGULARITY_IMAGE_DIR {singularity_image_dir} does not exist')
+    singularity_image_head = os.path.join(singularity_image_dir, FLAGS.docker_image_name)
+    for singularity_ext in "sif", "simg":
+      singularity_image =  singularity_image_head + "." + singularity_ext
+      if os.path.exists(singularity_image):
+        break
+    else:
+      raise app.UsageError(f'SINGULARITY_IMAGE_DIR {singularity_image_dir} does not contain '
+      f'{FLAGS.docker_image_name}.sif/.simg')
+    singularity_command = ["singularity", "run", "--cleanenv"]
+    singularity_command += ["--env", "TF_FORCE_UNIFIED_MEMORY=1"]
+    singularity_command += ["--env", "XLA_PYTHON_CLIENT_MEM_FRACTION=4.0"]
+    singularity_command += ["--env", "OPENMM_CPU_THREADS=8"]      
+    if FLAGS.use_gpu:
+      singularity_command += ["--nv"]
+      if FLAGS.gpu_devices != "all":
+        os.environ["SINGULARITYENV_CUDA_VISIBLE_DEVICES"] = FLAGS.gpu_devices
+    for mount in mounts:
+      mount_readonly = "ro" if mount["ReadOnly"] else "rw"
+      singularity_command += ['--bind', f'{mount["Source"]}:{mount["Target"]}:{mount_readonly}']
+    singularity_command += [singularity_image]
+    singularity_command += command_args
+    print(" ".join(singularity_command))
+    subprocess.run(singularity_command)
+  else:   # execute with Docker
+    client = docker.from_env()
+    container = client.containers.run(
+        image=docker_image_name,
+        command=command_args,
+        runtime='nvidia' if FLAGS.use_gpu else None,
+        remove=True,
+        detach=True,
+        mounts=mounts,
+        environment={
+            'NVIDIA_VISIBLE_DEVICES': FLAGS.gpu_devices,
+            # The following flags allow us to make predictions on proteins that
+            # would typically be too long to fit into GPU memory.
+            'TF_FORCE_UNIFIED_MEMORY': '1',
+            'XLA_PYTHON_CLIENT_MEM_FRACTION': '4.0',
+        })
 
-  for line in container.logs(stream=True):
-    logging.info(line.strip().decode('utf-8'))
+    # Add signal handler to ensure CTRL+C also stops the running container.
+    signal.signal(signal.SIGINT,
+                  lambda unused_sig, unused_frame: container.kill())
+
+    for line in container.logs(stream=True):
+      logging.info(line.strip().decode('utf-8'))
 
 
 if __name__ == '__main__':
