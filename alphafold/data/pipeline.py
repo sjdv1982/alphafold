@@ -152,7 +152,7 @@ class DataPipeline:
             database_path=small_bfd_database_path)
     else:
       self.hhblits_bfd_uniclust_runner = None
-      if bfd_database_path is not None and uniref90_database_path is not None:
+      if bfd_database_path is not None and uniclust30_database_path is not None:
         self.hhblits_bfd_uniclust_runner = hhblits.HHBlits(
             binary_path=hhblits_binary_path,
             databases=[bfd_database_path, uniclust30_database_path])
