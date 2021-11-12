@@ -188,9 +188,11 @@ class DataPipeline:
       use_precomputed_msas: Whether to use pre-existing MSAs; see run_alphafold.
     """
     self._monomer_data_pipeline = monomer_data_pipeline
-    self._uniprot_msa_runner = jackhmmer.Jackhmmer(
-        binary_path=jackhmmer_binary_path,
-        database_path=uniprot_database_path)
+    self._uniprot_msa_runner = None
+    if uniprot_database_path is not None:
+      self._uniprot_msa_runner = jackhmmer.Jackhmmer(
+          binary_path=jackhmmer_binary_path,
+          database_path=uniprot_database_path)
     self._max_uniprot_hits = max_uniprot_hits
     self.use_precomputed_msas = use_precomputed_msas
 
@@ -225,7 +227,7 @@ class DataPipeline:
     """Get MSA features for unclustered uniprot, for pairing."""
     out_path = os.path.join(msa_output_dir, 'uniprot_hits.sto')
     result = pipeline.run_msa_tool(
-        self._uniprot_msa_runner, input_fasta_path, out_path, 'sto',
+        'uniprot', self._uniprot_msa_runner, input_fasta_path, out_path, 'sto',
         self.use_precomputed_msas)
     msa = parsers.parse_stockholm(result['sto'])
     msa = msa.truncate(max_seqs=self._max_uniprot_hits)
