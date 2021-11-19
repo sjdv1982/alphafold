@@ -280,14 +280,12 @@ def main(argv):
   if len(argv) > 1:
     raise app.UsageError('Too many command-line arguments.')
 
-  if FLAGS.only_msas and FLAGS.use_precomputed_msas:
-    raise app.UsageError('only_msas and use_precomputed_msas are incompatible')
-
   run_multimer_system = 'multimer' in FLAGS.model_preset
   use_small_bfd = FLAGS.db_preset == 'reduced_dbs'
 
   require_all_databases = True
-  if FLAGS.use_precomputed_msas and not FLAGS.use_templates:
+  if FLAGS.use_precomputed_msas and not FLAGS.use_templates \
+      and not FLAGS.only_msas:
     require_all_databases = False
 
   if require_all_databases:

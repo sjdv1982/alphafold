@@ -127,11 +127,9 @@ def main(argv):
       raise app.UsageError(
         'If templates are used, max_template_date must be defined')
 
-  if FLAGS.only_msas and FLAGS.use_precomputed_msas:
-    raise app.UsageError('only_msas and use_precomputed_msas are incompatible')
-
   require_all_databases = True
-  if FLAGS.use_precomputed_msas and not FLAGS.use_templates:
+  if FLAGS.use_precomputed_msas and not FLAGS.use_templates \
+      and not FLAGS.only_msas:
     require_all_databases = False
 
   # You can individually override the following paths if you have placed the
