@@ -113,8 +113,7 @@ flags.DEFINE_integer('random_seed', None, 'The random seed for the data '
                      'that even if this is set, Alphafold may still not be '
                      'deterministic, because processes like GPU inference are '
                      'nondeterministic.')
-flags.DEFINE_boolean(
-                     'use_templates', True,
+flags.DEFINE_boolean('use_templates', True,
                      'Whether to search for template structures.')
 flags.DEFINE_boolean('use_precomputed_msas', False, 'Whether to read MSAs that '
                      'have been written to disk. WARNING: This will not check '
