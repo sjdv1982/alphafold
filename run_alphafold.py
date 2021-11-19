@@ -118,6 +118,8 @@ flags.DEFINE_boolean('use_templates', True,
 flags.DEFINE_boolean('use_precomputed_msas', False, 'Whether to read MSAs that '
                      'have been written to disk. WARNING: This will not check '
                      'if the sequence, database or configuration have changed.')
+flags.DEFINE_boolean('amber', True,
+                     'Whether to do an Amber relaxation of the models.')
 flags.DEFINE_boolean('only_msas', False, 'Whether to only build MSAs, and not '
                      'do any prediction.')
 FLAGS = flags.FLAGS
@@ -145,7 +147,7 @@ def predict_structure(
     output_dir_base: str,
     data_pipeline: Union[pipeline.DataPipeline, pipeline_multimer.DataPipeline],
     model_runners: Dict[str, model.RunModel],
-    amber_relaxer: relax.AmberRelaxation,
+    amber_relaxer: Optional[relax.AmberRelaxation],
     benchmark: bool,
     random_seed: int,
     is_prokaryote: Optional[bool] = None,
@@ -408,12 +410,14 @@ def main(argv):
   logging.info('Have %d models: %s', len(model_runners),
                list(model_runners.keys()))
 
-  amber_relaxer = relax.AmberRelaxation(
-      max_iterations=RELAX_MAX_ITERATIONS,
-      tolerance=RELAX_ENERGY_TOLERANCE,
-      stiffness=RELAX_STIFFNESS,
-      exclude_residues=RELAX_EXCLUDE_RESIDUES,
-      max_outer_iterations=RELAX_MAX_OUTER_ITERATIONS)
+  amber_relaxer = None
+  if FLAGS.amber:
+    amber_relaxer = relax.AmberRelaxation(
+        max_iterations=RELAX_MAX_ITERATIONS,
+        tolerance=RELAX_ENERGY_TOLERANCE,
+        stiffness=RELAX_STIFFNESS,
+        exclude_residues=RELAX_EXCLUDE_RESIDUES,
+        max_outer_iterations=RELAX_MAX_OUTER_ITERATIONS)
 
   random_seed = FLAGS.random_seed
   if random_seed is None:
